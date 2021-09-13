@@ -2478,12 +2478,654 @@ A module file can also mark an exported item as the default export for the file 
     return a + b;
 }
 export class ModuleNonDefaultExport { }`
+`
+
+# Generics and Advanced Type Inference
+
+## Generic syntax
+
+`function printGeneric<T>(value: T) {
+    console.log(`typeof T is : ${typeof value}`);
+    console.log(`value is : ${value}`)
+}`
+
+If we do not explicitly specify what type the generic function should use, by omitting the <type> specifier, the compiler will infer the type to be used from the type of each argument.
+
+Multiple generic types
+We can also specify more than one type to be used in a generic function, as follows:
+
+`function usingTwoTypes<A, B> ( first: A, second: B) {
+}`
+
+Constraining the type of T
+In most instances, we will want to limit the type of T in order to only allow a specific set of types to be used within our generic code. This is best explained through an example, as follows:
+
+`class Concatenator<T extends Array<string> | Array<number>> {
+    public concatenateArray(items: T): string {
+        let returnString = "";
+        for (let i = 0; i < items.length; i++) {
+            returnString += i > 0 ? "," : "";
+            returnString += items[i].toString();
+        }
+        return returnString;
+    }
+}`
+
+using the type T
+`function useT<T extends IPrintId | IPrintName>(item: T)
+    : void {
+    item.print();
+    item.id = 1;  // error : id is not common
+    item.name = "test"; // error : name is not common
+}`
+
+Generic constraints
+A generic type can be constructed out of another generic type. This technique essentially uses one type to apply a constraint on another type. Let's take a look at an example, as follows:
+
+`function printProperty<T, K extends keyof T>
+    (object: T, key: K) {
+    let propertyValue = object[key];
+    console.log(`object[${key}] = ${propertyValue}`);
+}`
+
+## Generic interfaces
+
+`interface IPrint {
+    print(): void;
+}
+interface ILogInterface<T extends IPrint> {
+    logToConsole(iPrintObj: T): void;
+}
+class LogClass<T extends IPrint>
+    implements ILogInterface<T>
+{
+    logToConsole(iPrintObj: T): void {
+        iPrintObj.print();
+    }
+}`
+
+## Creating new objects within generics
+`class ClassA { }
+class ClassB { }
+function createClassInstance<T>
+    (arg1: T): T {
+    return new arg1(); // error : see below
+}
+let classAInstance = createClassInstance(ClassA);`
+Here, we can see that the compiler will not allow us to construct a new instance of the type T in this way. This is because the type of T is really of type unknown to the function at this stage.
+
+According to the TypeScript documentation, in order for a generic class to be able to construct an object of type T, we need to refer to type T by its constructor function. Our createClassInstance function therefore needs to be rewritten as follows:
+
+`function createClassInstance<T>
+    (arg1: { new(): T }): T {
+    return new arg1();
+}`
+
+
+Mapped types
+
+interface IAbRequired {
+    a: number;
+    b: string;
+}
+let ab: IAbRequired = {
+    a: 1,
+    b: "test"
+}
+type WeakInterface<T> = {
+    [K in keyof T]?: T[K];
+}
+let allOptional: WeakInterface<IAbRequired> = {}
+
+see record , pick , readonly etc
+
+Conditional types
+type NumberOrString<T> = T extends number ? number : string;
+
+Conditional type chaining
+
+`interface IA {
+    a: number;
+}
+interface IAb {
+    a: number;
+    b: string;
+}
+interface IAbc {
+    a: number;
+    b: string;
+    c: boolean;
+}`
+
+Distributed conditional types
+ see again
+ 
+ Conditional type inference
+There is a further, and more esoteric version of the conditional type syntax, where we are able to infer a new type as part of a conditional type statement. The simplest form of these inferred types can best be explained by an example, as follows:
+
+`type inferFromPropertyType<T> =
+    T extends { id: infer U } ? U : never;` // infer means we the U has prop of id
+    
+ `function testInferFromPropertyType<T>
+(
+    arg: inferFromPropertyType<T>
+) { }
+testInferFromPropertyType<{ id: string }>("test");
+testInferFromPropertyType<{ id: number }>(1);`
+
+infer is there to say you know you are declaring a new type (in the conditional type's scope) - much like you have to write var, let or const to tell the compiler you know you're declaring a new variable
+
+## Type inference from function signatures
 
 
 
+Type inference from arrays 
+
+`type inferredTypeFromArray<T> = 
+    T extends (infer U)[] ? U : never;
+function testInferredFromArray<T>
+    (args: inferredTypeFromArray<T>) 
+{ }
+testInferredFromArray<string[]>("test");
+testInferredFromArray<number[]>(1);`
+
+Standard conditional types
+
+Let's explore three of these conditional types, named Exclude, Extract, and NonNullable, as follows:
+
+`type ExcludeStringAndNumber = Exclude<
+    string | number | boolean,
+    string | number>;
+let boolValue: ExcludeStringAndNumber = true;`
+
+
+the type declaration excludes the following , extracts or includes following , and removes nullable
+
+## Asynchronous Language Features
+
+callbacks
+`function delayedResponseWithCallback(callback: () => void) {
+    function executeAfterTimeout() {
+        console.log(`5. executeAfterTimeout()`);
+        callback();
+    }
+    console.log(`2. calling setTimeout`)
+    setTimeout(executeAfterTimeout, 1000);
+    console.log(`3. after calling setTimeout`)
+}`
+
+promises
+
+passing promise
+function fnDelayedPromise(
+    resolve: () => void,
+    reject: () => void) {
+    function afterTimeout() {
+        resolve();
+    }
+    setTimeout(afterTimeout, 1000);
+}
+creating promise
+function delayedResponsePromise(): Promise<void> {
+    return new Promise<void>(fnDelayedPromise);
+}
 
 
 
+returnin sample promise 
 
+`return new Promise<IDataRow[]>(
+        (
+            resolve: (results: IDataRow[]) => void,
+            reject: (results: IError) => void
+        ) => {
+            // check the connection properties
+            // connect to the database
+            // retrieve data, or
+            // reject with an error 
+        }
+    );`
+    
+ ## Await syntax
+Let's dive right in and show how to use async and await using an example. First up, a Promise that will delay for a second as follows:
+
+`export function delayedPromise(): Promise<void> {
+    return new Promise<void>(
+        (
+            resolve: () => void,
+            reject: () => void) => {
+            setTimeout(() => {
+                console.log(`2. calling resolve()`)
+                resolve();
+            }, 1000);
+        }
+    )
+}`
+
+`async function callDelayedPromise() {
+    console.log(`1. before calling delayedPromise`);
+    await delayedPromise();
+    console.log(`3. after calling delayedPromise`)
+}`
+
+
+Await values
+The async await syntax also allows values to be returned by Promises, in a similar manner to how we would use the then function blocks in Promise fluent syntax. Let's take a look at this in action, starting with a Promise that returns some values, as follows:
+
+`function promiseWithValues(): Promise<string[]> {
+    return new Promise<string[]>(
+        (
+            resolve: (values: string[]) => void,
+            reject: (error: string) => void
+        ) => {
+            resolve(["first", "second"]);
+        }
+    );
+}`
+
+
+async function getValuesFromPromise() {
+    let values = await promiseWithValues();
+    for (let value of values) {
+        console.log(`value : ${value}`)
+    }
+}
+
+## Decorators
+Decorators, however, allow us to inject code into the actual definition of a class, before a class instance has been created. They are similar to attributes in C#, or annotations in Java.
+
+JavaScript decorators are currently only at a draft or stage 2 level, meaning that it may take a while before they are adopted into the JavaScript standard. TypeScript, however, has supported decorators for quite some time, although they are marked as experimental. Decorators have also become popular due to their use within frameworks such as Angular, where they are primarily used for dependency injection, or Vue, where they are used to inject functions into a class definition.
+
+Decorator setup
+Decorators are an experimental feature of the TypeScript compiler and are supported in ES5 and above. In order to use decorators, we need to enable a compile option in the tsconfig.json file. This option is named experimentalDecorators, and needs to be set to true, as follows:
+
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "strict": true,
+        "experimentalDecorators": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    }
+}
+
+Decorator syntax
+A decorator is a function that is called with a specific set of parameters. These parameters are automatically populated by the JavaScript runtime, and contain information about the class, method, or property to which the decorator has been applied. The number of parameters, and their types, determine where a decorator can be applied. To illustrate this syntax, let's define a class decorator, as follows:
+
+`function simpleDecorator(constructor: Function) {
+    console.log('simpleDecorator called');
+}`
+
+`@simpleDecorator
+class ClassWithSimpleDecorator {
+}`
+
+here simpledecorator will be called even without instantiation
+
+Decorators are only invoked once, when a class is defined.
+
+Here, we have a decorator function named secondDecorator, which also logs a message to the console once it has been invoked. We can now apply both simpleDecorator (from our earlier code snippet) and secondDecorator as follows:
+
+@simpleDecorator
+@secondDecorator
+class ClassWithMultipleDecorators {
+}
+Here, we have applied both decorators to a class named ClassWithMultipleDecorators. The output of this code is as follows:
+
+secondDecorator called
+simpleDecorator called
+
+Decorators are called in the reverse order of their appearance within our code.
+
+Types of decorators
+Decorators, as mentioned earlier, are functions that are invoked by the JavaScript runtime when a class is defined. Depending on what type of decorator is used, these decorator functions will be invoked with different arguments. Let's take a quick look at the types of decorators, which are:
+
+Class decorators: These are decorators that can be applied to a class definition
+Property decorators: These are decorators that can be applied to a property within a class
+Method decorators: These are decorators that can be applied to a method on a class
+Parameter decorators: These are decorators that can be applied to a parameter of a method within a class
+
+
+As an example of these types of decorators, consider the following code:
+
+function classDecorator(
+    constructor: Function) {}
+function propertyDecorator(
+    target: any, 
+    propertyKey: string) {}
+function methodDecorator(
+    target: any,
+    methodName: string,
+    descriptor?: PropertyDescriptor) {}
+function parameterDecorator(
+    target: any, 
+    methodName: string, 
+    parameterIndex: number) {}
+    
+    
+    example 👎
+    
+    
+    @classDecorator
+class ClassWithAllTypesOfDecorators {
+    @propertyDecorator
+    id: number = 1;
+    @methodDecorator
+    print() { }
+    setId(@parameterDecorator id: number) { }
+}
+
+
+Decorator factories
+On occasion, we will need to define a decorator that has parameters. In order to achieve this, we will need to use what is known as a decorator factory function. A decorator factory function is created by wrapping the decorator function itself within a function, as follows:
+
+function decoratorFactory(name: string) {
+    return (constructor: Function) => {
+        console.log(`decorator function called with : ${name}`);
+    }
+}
+
+
+### class decorator
+We know that in order to define a class decorator, we must define a function that has a single parameter, which is of type Function. Let's take a closer look at this parameter, as follows:
+
+function classConstructorDec(constructor: Function) {
+    console.log(`constructor : ${constructor}`);
+}
+@classConstructorDec
+class ClassWithConstructor {
+    constructor(id: number) { }
+}
+
+Property decorators
+Property decorators, as we have seen, are decorators that can be used on class properties. Property decorators have two parameters, which are the class prototype itself and the property name. Let's take a look at these parameters, as follows:
+
+function propertyDec(target: any, propertyName: string) {
+    console.log(`target : ${target}`);
+    console.log(`target.constructor : ${target.constructor}`);
+    console.log(`propertyName : ${propertyName}`);
+}
+
+Static property decorators
+Property decorators can also be applied to static class properties in the same way that they can be applied to normal properties. The resulting arguments that are passed into our decorator will be slightly different, however. Remember that the JavaScript runtime will fill in these decorator arguments for us, and we are therefore given the JavaScript version of these arguments.
+
+in case of static ctros , target,name has the class name otherwise target.ctor.name
+
+
+6
+Decorators
+Decorators in TypeScript provide a way of programmatically tapping into the process of defining a class. Remember that a class definition describes the shape of a class, what properties it has, and what methods it defines. When an instance of a class is created, these properties and methods become available on the class instance. Decorators, however, allow us to inject code into the actual definition of a class, before a class instance has been created. They are similar to attributes in C#, or annotations in Java.
+
+JavaScript decorators are currently only at a draft or stage 2 level, meaning that it may take a while before they are adopted into the JavaScript standard. TypeScript, however, has supported decorators for quite some time, although they are marked as experimental. Decorators have also become popular due to their use within frameworks such as Angular, where they are primarily used for dependency injection, or Vue, where they are used to inject functions into a class definition.
+
+It must be said that this chapter comes with a warning up-front. Since decorators are only at draft level, and with TypeScript only supporting them as experimental, the implementation and standards for both JavaScript and TypeScript could change at any time. This means that we could craft some very fine decorator code, but changes to the specifications could introduce breaking changes, forcing a significant amount of rework. The purpose of this chapter is therefore to introduce and understand decorators, particularly for those who are using them heavily in frameworks.
+
+This chapter is broken up into two sections. The first section describes how we can set up our TypeScript project to support decorators, and what the syntax is for using decorators. The second section of this chapter will focus on each of the decorator types, what they are, how they are defined, and how they can be used. We will look at class, property, function, and method decorators.
+
+Decorator overview
+In this section of the chapter, we will take a look at the general setup and syntax of decorators, what we need to do to enable them, and how they are applied to classes. We will also show how multiple decorators can be used at the same time, and then discuss the different types of decorators. Finally, this section will take a look at decorator factories, and how we can pass parameters into decorator functions.
+
+Decorator setup
+Decorators are an experimental feature of the TypeScript compiler and are supported in ES5 and above. In order to use decorators, we need to enable a compile option in the tsconfig.json file. This option is named experimentalDecorators, and needs to be set to true, as follows:
+
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "strict": true,
+        "experimentalDecorators": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true
+    }
+}
+Here, we have set the compiler option named experimentalDecorators to true. This will allow the use of decorators within our TypeScript code.
+
+Decorator syntax
+A decorator is a function that is called with a specific set of parameters. These parameters are automatically populated by the JavaScript runtime, and contain information about the class, method, or property to which the decorator has been applied. The number of parameters, and their types, determine where a decorator can be applied. To illustrate this syntax, let's define a class decorator, as follows:
+
+function simpleDecorator(constructor: Function) {
+    console.log('simpleDecorator called');
+}
+Here, we have a function named simpleDecorator, which has a single parameter named constructor of type Function, which logs a message to the console, indicating that it has been invoked. This function, due to the parameters that it defines, can be used as a class decorator function and can be applied to a class definition, as follows:
+
+@simpleDecorator
+class ClassWithSimpleDecorator {
+}
+Here, we have a class named ClassWithSimpleDecorator that has the simpleDecorator decorator applied to it. We apply a decorator using the "at" symbol (@), followed by the name of the decorator function. Running this code will produce the following output:
+
+simpleDecorator called
+Here, we can see that the simpleDecorator function has been invoked. What is interesting about this code sample, however, is that we have not created an instance of the class named ClassWithSimpleDecorator as yet. All that we have done is specify the class definition, added a decorator to it, and the decorator has been called by the JavaScript runtime automatically.
+
+Not having to wait for the creation of an instance of a class tells us that decorators are applied when a class is defined. Let's prove this theory by creating a few instances of this class, as follows:
+
+let instance_1 = new ClassWithSimpleDecorator();
+let instance_2 = new ClassWithSimpleDecorator();
+console.log(`instance_1 : ${JSON.stringify(instance_1)}`);
+console.log(`instance_2 : ${JSON.stringify(instance_2)}`);
+Here, we have created two new instances of ClassWithSimpleDecorator, named instance_1 and instance_2. We then log a message to the console to output the value of each class instance. The output of this code is as follows:
+
+simpleDecorator called
+instance_1 : {}
+instance_2 : {}
+Here, we can see that the simpleDecorator function has only been called once, even though we have created two instances of the ClassWithSimpleDecorator class.
+
+Decorators are only invoked once, when a class is defined.
+
+Multiple decorators
+Multiple decorators can be applied one after another on the same target. As an example of this, let's define a second decorator function as follows:
+
+function secondDecorator(constructor: Function) {
+    console.log(`secondDecorator called`);
+}
+Here, we have a decorator function named secondDecorator, which also logs a message to the console once it has been invoked. We can now apply both simpleDecorator (from our earlier code snippet) and secondDecorator as follows:
+
+@simpleDecorator
+@secondDecorator
+class ClassWithMultipleDecorators {
+}
+Here, we have applied both decorators to a class named ClassWithMultipleDecorators. The output of this code is as follows:
+
+secondDecorator called
+simpleDecorator called
+Here, we can see that both of the decorators have logged a message to the console. What is interesting, however, is the order in which they are called.
+
+Decorators are called in the reverse order of their appearance within our code.
+
+Types of decorators
+Decorators, as mentioned earlier, are functions that are invoked by the JavaScript runtime when a class is defined. Depending on what type of decorator is used, these decorator functions will be invoked with different arguments. Let's take a quick look at the types of decorators, which are:
+
+Class decorators: These are decorators that can be applied to a class definition
+Property decorators: These are decorators that can be applied to a property within a class
+Method decorators: These are decorators that can be applied to a method on a class
+Parameter decorators: These are decorators that can be applied to a parameter of a method within a class
+As an example of these types of decorators, consider the following code:
+
+function classDecorator(
+    constructor: Function) {}
+function propertyDecorator(
+    target: any, 
+    propertyKey: string) {}
+function methodDecorator(
+    target: any,
+    methodName: string,
+    descriptor?: PropertyDescriptor) {}
+function parameterDecorator(
+    target: any, 
+    methodName: string, 
+    parameterIndex: number) {}
+Here, we have four functions, each with slightly different parameters.
+
+The first function, named classDecorator, has a single parameter named constructor of type Function. This function can be used as a class decorator.
+
+The second function, named propertyDecorator, has two parameters. The first parameter is named target, and is of type any. The second parameter is named propertyKey and is of type string. This function can be used as a property decorator.
+
+The third function, named methodDecorator, has three parameters. The first parameter, named target, is of type any, and the second parameter is named methodName, and is of type string. The third parameter is an optional parameter named descriptor, and is of type PropertyDescriptor. This function can be used as a method decorator.
+
+The fourth function is named parameterDecorator, and also has three parameters. The first parameter is named target, and is of type any. The second parameter is named methodName, and is of type string. The third parameter is named parameterIndex, and is of type number. This function can be used as a parameter decorator.
+
+Let's now take a look at how we would use each of these decorators as follows:
+
+@classDecorator
+class ClassWithAllTypesOfDecorators {
+    @propertyDecorator
+    id: number = 1;
+    @methodDecorator
+    print() { }
+    setId(@parameterDecorator id: number) { }
+}
+Here, we have a class named ClassWithAllTypesOfDecorators. This class has an id property of type number, a print method, and a setId method. The class itself has been decorated by our classDecorator, and the id property has been decorated by the propertyDecorator. The print method has been decorated by the methodDecorator function, and the id parameter of the setId function has been decorated by the parameterDecorator.
+
+What is important to note about decorators is that it is the number of parameters and their types that distinguish whether they can be used as class, property, method, or parameter decorators. Again, the JavaScript runtime will fill in each of these parameters at runtime.
+
+Decorator factories
+On occasion, we will need to define a decorator that has parameters. In order to achieve this, we will need to use what is known as a decorator factory function. A decorator factory function is created by wrapping the decorator function itself within a function, as follows:
+
+function decoratorFactory(name: string) {
+    return (constructor: Function) => {
+        console.log(`decorator function called with : ${name}`);
+    }
+}
+Here, we have a function named decoratorFactory that accepts a single parameter named name of type string. Within this function, we return an anonymous function that has a single parameter named constructor of type Function. This anonymous function is our decorator function itself, and will be called by the JavaScript runtime with a single argument. Within the decorator function, we are logging a message to the console that includes the name parameter passed in to the decoratorFactory function. We can now use this decorator factory as follows:
+
+@decoratorFactory('testName')
+class ClassWithDecoratorFactory {
+}
+Here we have applied the decorator named decoratorFactory to a class named ClassWithDecoratorFactory, and supplied the string value of "testName" as the name argument. The output of this code is as follows:
+
+decorator function called with : testName
+Here, we can see that the anonymous function returned by the decoratorFactory function was invoked with the string "testName" as the value of the name argument.
+
+There are two things to note regarding decorator factory functions. Firstly, they must return a function that has the correct number of parameters, and types of parameters, depending on what type of decorator they are. Secondly, the parameters defined for the decorator factory function can be used anywhere within the function definition, which includes within the anonymous decorator function itself.
+
+This concludes our discussion of the setup and use of decorators. In the next section of this chapter, we will explore each of these types of decorators in a little more detail.
+
+Exploring decorators
+In this section of the chapter, we will work through each of the different types of decorators and experiment with the information that is provided by each decorator function. We will then use what we have learned in order to provide examples of some practical applications of decorators.
+
+Class decorators
+We know that in order to define a class decorator, we must define a function that has a single parameter, which is of type Function. Let's take a closer look at this parameter, as follows:
+
+function classConstructorDec(constructor: Function) {
+    console.log(`constructor : ${constructor}`);
+}
+@classConstructorDec
+class ClassWithConstructor {
+    constructor(id: number) { }
+}
+Here, we have a decorator function named classConstructorDec, which is logging the value of the constructor argument to the console. We have then applied this decorator to a class named ClassWithConstructor. This ClassWithConstructor class has a single constructor function that accepts a single parameter named id, of type number. The output of this code is as follows:
+
+constructor : function ClassWithConstructor(id) {
+    }
+Here, we can see that the decorator was invoked with a single argument, which is the definition of the constructor function itself. Note that this definition is the JavaScript definition, and not the TypeScript definition, as there is no type for the id parameter. What this is showing us is that a class decorator will be called with the definition of the class constructor itself. Note that the exact output of this code depends on the target version that we have specified, which is "es5". If we change this to "es6", we will generate slightly different output.
+
+Let's now update our classConstructorDec decorator and use it to modify the class definition itself, as follows:
+
+function classConstructorDec(constructor: Function) {
+    console.log(`constructor : ${constructor}`);
+    constructor.prototype.testProperty = "testProperty_value";
+}
+Here, we have added a line to our classConstructorDec decorator that is using the prototype property to modify the class definition itself and has added a property named testProperty. The value of this testProperty is set to the string "testProperty_value". We can see the effect of this decorator modifying the class definition when we construct an instance of this class as follows:
+
+let classInstance = new ClassWithConstructor(1);
+console.log(`classInstance.testProperty = 
+    ${(<any>classInstance).testProperty}`);
+Here, we are creating an instance of the ClassWithConstructor class, named classInstance. We are then logging the value of the testProperty property of this class instance to the console. Note that we need to cast the classInstance variable to a type of any in order to access this property, as it does not appear on the initial class definition. The output of this code is as follows:
+
+classInstance.testProperty = 
+    testProperty_value
+Here, we can see that the class decorator has added a property named testProperty to the instance of the class and set its value to "testProperty_value".
+
+Property decorators
+Property decorators, as we have seen, are decorators that can be used on class properties. Property decorators have two parameters, which are the class prototype itself and the property name. Let's take a look at these parameters, as follows:
+
+function propertyDec(target: any, propertyName: string) {
+    console.log(`target : ${target}`);
+    console.log(`target.constructor : ${target.constructor}`);
+    console.log(`propertyName : ${propertyName}`);
+}
+Here, we have defined a property decorator named propertyDec, which has two parameters. The first parameter is named target, and is of type any, and the second parameter is named propertyName, and is of type string. Within this decorator function, we are logging three things to the console. Firstly, we are logging the value of the target property itself, and then we are logging the value of the constructor property of the target object. Finally, we are logging the value of the propertyName parameter. Let's now use this decorator as follows:
+
+class ClassWithPropertyDec {
+    @propertyDec
+    nameProperty: string | undefined;
+}
+Here, we have defined a class named ClassWithPropertyDec, which is decorating a single property named nameProperty with our propertyDec decorator. The output of this code is as follows:
+
+target : [object Object]
+target.constructor : function ClassWithPropertyDec() {
+    }
+propertyName : nameProperty
+Here, we can see that the target argument that was passed to our decorator is an object, as we would expect, because it is, in fact, a class definition. We can also see from the second line of the console output that this object has a constructor function, and we are able to print its definition to the console. We also have the name of the property that we decorated passed in as the propertyName argument.
+
+Static property decorators
+Property decorators can also be applied to static class properties in the same way that they can be applied to normal properties. The resulting arguments that are passed into our decorator will be slightly different, however. Remember that the JavaScript runtime will fill in these decorator arguments for us, and we are therefore given the JavaScript version of these arguments.
+
+Let's now try and decorate a static class property with the same decorator that we have just used, as follows:
+
+class StaticClassWithPropertyDec {
+    @propertyDec
+    static staticProperty: string;
+}
+Here, we have applied the propertyDec decorator to a property named staticProperty on a class named StaticClassWithPropertyDec. We have marked this property as static, however. The outputs of the various console logs within our decorator are as follows:
+
+target : function StaticClassWithPropertyDec() {
+    }
+target.constructor : function Function() { [native code] }
+propertyName : staticProperty
+Here, we can see that the target argument is now a function, where it was an object, or, more accurately, a class prototype object previously. The constructor property of this function is now a function, and the propertyKey argument contains the name of our property.
+
+Let's now update our propertyDec property decorator to correctly identify the class name in both of these cases, as follows:
+
+`function propertyDec(target: any, propertyName: string) {
+    if (typeof (target) === 'function') {
+        console.log(`class name : ${target.name}`);
+    } else {
+        console.log(`class name : `
+            + `${target.constructor.name}`);
+    }
+    console.log(`propertyName : ${propertyName}`);
+}`
+
+## Method decorators
+Recall that method decorators can be applied to methods within a class and that they have three parameters. Let's take a look at a method decorator as follows:
+
+Method decorators
+Recall that method decorators can be applied to methods within a class and that they have three parameters. Let's take a look at a method decorator as follows:
+
+`function methodDec(
+    target: any,
+    methodName: string,
+    descriptor?: PropertyDescriptor
+) {
+    console.log(`target: ${target}`);
+    console.log(`methodName : ${methodName}`);
+    console.log(`descriptor : ${JSON.stringify(descriptor)}`);
+    console.log(`target[methodName] : ${target[methodName]}`);
+}`
+
+Parameter decorators
+Parameter decorators can be used to decorate a specific parameter within a method of a class. As an example, consider the following decorator:
+
+`function parameterDec(target: any,
+    methodName: string,
+    parameterIndex: number) {
+    console.log(`target: ${target}`);
+    console.log(`methodName : ${methodName}`);
+    console.log(`parameterIndex : ${parameterIndex}`);
+}`
+
+Decorator metadata
+The TypeScript compiler includes experimental support for decorators to carry extra metadata when they are used. This metadata provides us with a little more information with regard to how a decorator is used. In order to activate this feature, we will need to set the emitDecoratorMetadata flag in our tsconfig.json file to true, as follows:
+
+`{
+    "compilerOptions": {
+        // other compiler options
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
+    }
+}`
+
+this gives extra info and can be tapped into using reflect-metadata library
 
 
