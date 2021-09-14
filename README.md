@@ -3128,4 +3128,960 @@ The TypeScript compiler includes experimental support for decorators to carry ex
 
 this gives extra info and can be tapped into using reflect-metadata library
 
+## Integration with JS
+
+if a js varibale is defined and ts file needs access then , we just do this
+create a declaration file 
+
+and add 
+declare const CONTACT_EMAIL_ARRAY: string[];
+
+this will help get away all compile errors
+
+now go ahead and run the app , ts will transpile to js and will do all the work
+
+if using any famous js library , also use its d file to work with writing ts
+
+```npm install underscore
+npm install @types/underscore --save-dev```
+
+we could also create a d file ourselves like this 
+(dont not do this unless necessary)
+declare module 'underscore';
+
+sample declaration file :-
+interface IResponse {
+    responseText: IFailureMessage;
+}
+interface IFailureMessage {
+    failure: boolean | string;
+    errorMessage?: string;
+}
+declare module ErrorHelper {
+    function containsErrors(response: IResponse): boolean;
+    function trace(message: IResponse | string): void;
+}
+
+modules in js are referred to as namespacess in ts
+
+see few examples in the book . Its simple
+
+compiler options :-
+
+1. outDir :- output directory for files
+2. allowJS :- allows both js and ts
+
+"target": "es5", 
+"declaration": true, -->  will generate declaration files from js or ts
+
+## strict compiler options 
+
+strictNullChecks- if any variable is null or undefined
+strictPropertyInitialization : - The strictPropertyInitialization compiler option will check that all properties within a class have been initialized correctly. 
+strictBindCallApply:- JavaScript provides the bind, call, and apply functions that are used to override the value of the this variable inside a function. When using the bind, call, and apply functions, we essentially provide a particular version of the object that the function should use as the value for this and then invoke the function with the parameters it requires. The strictBindCallApply option is used to ensure that we provide these function parameters with the correct types. To illustrate this concept, consider the following code:
+
+strictFunctionTypes:-
+When we define types in TypeScript and then attempt to assign them to each other, the compiler makes sure that the types are consistent. Unfortunately, this strict typing rule did not apply correctly in some circumstances when dealing with functions. 
+
+noImplicityAny :- no any declarations
+noUnusedLocals :- no unused vars
+noUnusedParameters :- no unused params
+noImplicitReturns :- Not all code paths return a value.
+noFallthroughCasesInSwitch :- return from each case
+noImplicitThis :- errors arounf using this . 
+compiler will fix type on this and raise error if different values are used
+Arguably, the cleanest of the two solutions is to use the arrow syntax. Arrow functions, when they are used, do not get their own copy of the this property; they use the outer value of the this property.
+
+### Observable 
+use npm install rxjs
+
+To generate an Observable, we can use the of function as follows:
+
+import { of, Observable } from "rxjs";
+const emitter : Observable<number> = of(1, 2, 3, 4);
+
+subscribe observer as :-
+emitter.subscribe((value: number) => {
+    console.log(`value: ${value}`)
+});
+
+The of function has a partner function named from, which uses an array as input into the Observable, as follows:
+
+`const emitArray : Observable<number> = from([1, 2, 3, 4]);
+emitArray.subscribe((value: number) => {
+    console.log(`arr: ${value}`);
+});`
+
+This pipe function takes a variable number of functions as parameters and will execute these functions on each value that is emitted by the Observable. The functions that are provided to the pipe function are generally known as Observable operators, which all accept an Observable as input, and return an Observable as output. The pipe function emits an Observable stream.
+
+`import { map } from "rxjs/operators";
+const emitter = of(1, 2, 3, 4);
+const modulus = emitter.pipe(
+    map((value: number) => {
+        console.log(`received : ${value}`);
+        return value % 2;
+    }));
+modulus.subscribe((value: number) => {
+    console.log(`modulus : ${value}`);
+});`
+
+time based observables:-
+
+`const sourceInterval = interval(1000); //emit after every 1 second
+const fiveNumbers = sourceInterval.pipe(
+    take(5), // take first 5
+    map((value: number) => {
+        console.log(`map received : ${value}`)
+        return `string_${value * 2}`;
+    })
+);
+fiveNumbers.subscribe((value: string) => {
+    console.log(`${new Date().toLocaleTimeString()} ${value}`);
+})`
+
+catchError
+The code we have explored thus far will trap any errors occurring in the Observable stream, but this error trap is actually outside of the stream itself. It is an error handler for the subscribe function. We can, however, use the catchError operator within an Observable stream itself, in order to trap errors earlier, but still maintain the integrity of the stream. Consider the following code:
+
+`const returnIdValue = objEmit.pipe(
+    map((value: INestedObj) => {
+        return value!.id!.value;
+    }),
+    catchError((error: unknown) => {
+        console.log(`stream caught : ${error}`);
+        return of(null);
+    })
+);`
+
+mergeMap
+The mergeMap operator is used to return a single value from an Observable stream, so that we do not need to subscribe to the inner Observable. This behavior is best described through an example, as follows:
+
+productList.pipe(
+    mergeMap((value: IProductId):
+        Observable<IProductDescription> => {
+        console.log(`Product id: ${value?.id}`);
+        return getProductName(value.id);
+    })
+).subscribe((value: IProductDescription) => {
+    console.log(`product name : ${value.name}`)
+    console.log(`product desc : ${value.description}`)
+});
+
+
+If it is important to process the emitted values in order, no matter when they arrived, we can use the concatMap function instead of the mergeMap function. The concatMap function will only subscribe to the next Observable when the previous one completes. To illustrate this behavior, let's update the delayedEmit Observable as follows:
+
+`const delayedEmit = emitTreeTwoOne.pipe(
+    concatMap((value: number) => {
+        console.log(
+            `>> emit >> 
+             ${new Date().toLocaleTimeString()} 
+             value : ${value}, 
+             delaying : ${1000 * value} ms`
+        );
+        return of(value).pipe(delay(1000 * value))
+    })
+);`
+
+
+forkJoin
+When we have a number of Observable streams that need to all complete before we do something, we can use the forkJoin function. This situation occurs quite often when dealing with REST requests at the start of a page load, where the page may need to load data from a number of different REST APIs before displaying the page.
+
+`forkJoin(
+    [threeNumbers,
+        twoStrings]
+).subscribe((
+    [threeNumbersOutput, twoStringsOutput]
+) => {
+    console.log(`<< threeNumbersOutput: ${threeNumbersOutput}`);
+    console.log(`<< twoStringsOutput: ${twoStringsOutput}`);
+});`
+
+
+
+9
+Using Observables to Transform Data
+One of the most intriguing, somewhat difficult, but fun parts of JavaScript programming is based around the handling of events. Whenever we issue an asynchronous call, we are essentially waiting for an event to occur that will trigger our callback processing. We generally have no control over how long an asynchronous call might take, especially if this call is to a server somewhere via an API call. In a similar vein, when running a JavaScript application on the browser, we are often waiting for a user to interact with our software and generate an event via a button click, or a keypress. Again, we have no control over how long the user will take to click that button, or indeed the order in which buttons could be clicked. Think of a small child playing with a keyboard. They may hit a group of buttons at the same time by using their fist to smash the keyboard, or they may hit a completely random combination of keys. It is up to our software to handle this seemingly random stream of events.
+
+One of the most powerful and popular JavaScript libraries that specializes in event processing is the Reactive Extensions for JavaScript library, or simply RxJS. RxJS uses the Gang of Four (GoF) design pattern named the Observable pattern as the basis for registering interest in an event, as well as doing something when an event has been triggered. Along with these basic principles of the Observer design pattern, RxJS provides a plethora of utility functions to transform event data, as and when it comes in. At the heart of the RxJS library is the concept of Observables, which are source event streams. This has given rise to using the term Observables to describe RxJS source streams, and what can be done to them. So when someone says use Observables, they really mean use the RxJS library with its source streams and utility functions.
+
+In this chapter, we will explore Observables, which really means the RxJS library, how it is used, and how it can help us when working with event-based, or asynchronous data.
+
+In this chapter, we will cover the following topics:
+
+An introduction to Observables
+pipe and map
+Combining operators
+Time-based Observables
+Handling errors
+mergeMap, concatMap, and forkJoin
+Observable Subject
+Introduction to Observables
+To begin the discussion on Observables, let's first install the RxJS library as follows:
+
+npm install rxjs
+The RxJS library already includes the declaration files that are needed by TypeScript, so there is no need to install them separately using @types.
+
+To generate an Observable, we can use the of function as follows:
+
+import { of, Observable } from "rxjs";
+const emitter : Observable<number> = of(1, 2, 3, 4);
+Here, we start by importing the of function and the Observable type from the rxjs library. We are then defining a constant variable named emitter, which is using generic syntax to define its type as an Observable of type number. We then assign the result of the of function to the emitter variable, which will create an Observable from the numbers 1 through 4. We can now create an Observer as follows:
+
+emitter.subscribe((value: number) => {
+    console.log(`value: ${value}`)
+});
+Here, we are calling the subscribe function on the variable emitter. As the emitter variable is of type Observable, it automatically exposes the subscribe function in order to register Observers. The subscribe function takes a function as a parameter, and this function will be called once for each value that is emitted by the Observable. The output of this code is as follows:
+
+value: 1
+value: 2
+value: 3
+value: 4
+Here, we can see that the function we passed into the subscribe function has indeed been called once for each value that is emitted by the Observable.
+
+Note that only when calling the subscribe function on an Observable will the Observable start to emit values. Calling the subscribe function is known as subscribing to an Observable, and the values that are produced by the Observable are also known as the Observable stream.
+
+The of function has a partner function named from, which uses an array as input into the Observable, as follows:
+
+const emitArray : Observable<number> = from([1, 2, 3, 4]);
+emitArray.subscribe((value: number) => {
+    console.log(`arr: ${value}`);
+});
+Here, we have a variable named emitArray, which is of type Observable<number>, and is using the from function to create an Observable out of an array. Again, we call the subscribe function on the Observable named emitArray, and provide a function to be called for each value emitted by the Observable. The output of this code is as follows:
+
+arr: 1
+arr: 2
+arr: 3
+arr: 4
+Here, we can see that the from function has created an Observable stream from the array input, and that the function we provided to the subscribe function is being called once for each value that is emitted by the Observable.
+
+pipe and map
+The RxJS library provides a pipe function to all Observables, similar to the subscribe function. This pipe function takes a variable number of functions as parameters and will execute these functions on each value that is emitted by the Observable. The functions that are provided to the pipe function are generally known as Observable operators, which all accept an Observable as input, and return an Observable as output. The pipe function emits an Observable stream.
+
+This concept is best explained by reading some code, as in the following example:
+
+import { map } from "rxjs/operators";
+const emitter = of(1, 2, 3, 4);
+const modulus = emitter.pipe(
+    map((value: number) => {
+        console.log(`received : ${value}`);
+        return value % 2;
+    }));
+modulus.subscribe((value: number) => {
+    console.log(`modulus : ${value}`);
+});
+Here, we start with an Observable named emitter, which will emit the values 1 through 4. We then define a variable named modulus to hold the results of calling the pipe function on the emitter Observable. The only argument we are providing to the pipe function is a call to the map function, which is one of RxJS' operator functions.
+
+The map function takes a single function as a parameter and will call this function for each value that is emitted by the Observable. The map function is used to map one value to another, or to modify the value emitted in some way. In this sample, we are returning the result of applying the modulus of two to each value.
+
+Finally, we subscribe to the Observable and log its value to the console. The output of this code is as follows:
+
+received : 1
+modulus : 1
+received : 2
+modulus : 0
+received : 3
+modulus : 1
+received : 4
+modulus : 0
+Here, we can see that emitter Observable emits the values one through four, and that the modulus Observable is emitting the modulus of 2 for each valued received.
+
+Note that in these code samples, we have not explicitly set the type for our Observables. The emitter Observable and the modulus Observable could be explicitly typed as follows:
+
+const emitter : Observable<number> = of(1, 2, 3, 4);
+const modulus : Observable<number> = emitter.pipe( 
+    ...
+);
+Here, we have specified the type of both the emitter Observable, and the modulus Observable. This is not strictly necessary, as the TypeScript compiler will determine the correct return types when working with Observables. It does, however, explicitly state what we are expecting out of the Observable stream, and in larger, or more complex Observable transformations, explicitly setting the expected return type makes the code more readable and can prevent errors.
+
+Combining operators
+The pipe function allows us to combine multiple operator functions, which will each be applied to the values emitted by an Observable. Consider the following code:
+
+const emitter = of(1, 2, 3, 4);
+const stringMap = emitter.pipe(
+    map((value: number) => { return value * 2 }),
+    map((value: number) => { return `str_${value}` })
+);
+stringMap.subscribe((value: string) => {
+    console.log(`stringMap emitted : ${value}`);
+});
+Here, we have an Observable named emitter that will emit the values 1 through 4. We then have a variable named stringMap that holds the result of the pipe function on the emitter Observable. Within this pipe function, we have two map functions. The first map function will multiply the incoming numeric value by 2, and the second map function will convert it to a string, with the prefix str_.
+
+We then subscribe to the Observable and log each value to the console. The output of this code is as follows:
+
+stringMap emitted : str_2
+stringMap emitted : str_4
+stringMap emitted : str_6
+stringMap emitted : str_8
+Here, we can see that both map functions have been applied to each value emitted by the emitter Observable. Note that we have actually modified the type of each value from type number to type string, in our second map function. This is why the type specified for the value parameter in our subscribe function is of type string.
+
+Avoid swallowing values
+When writing functions that are used by the RxJS operator functions, we need to be careful that we continue to return values, and do not swallow them unexpectedly. Consider the following code:
+
+const emitOneTwo = of(1, 2);
+const swallowedValues = emitOneTwo.pipe(
+    map((value: number) => {
+        console.log(`swallowing ${value}`);
+        // not returning a value;
+    })
+);
+swallowedValues.subscribe((value: void) => {
+    console.log(`subscriber received value: ${value}`)
+});
+Here, we have an Observable named emitOneTwo that will emit the values 1 and 2. We then pipe these values into the swallowedValues Observable. Note the map function that we have provided here. All it is doing is logging a message to the console. It is not returning a value.
+
+As it is not returning a value, our subscribe function must define the type of the incoming value parameter as void. The output of this code is as follows:
+
+swallowing 1
+subscriber received value: undefined
+swallowing 2
+subscriber received value: undefined
+Here, we can see the side effects of not returning a value from a map function. Firstly, the map function will be called for each value that is emitted from the emitOneTwo Observable, as usual. Secondly, the subscribe function will still be called for each emitted value. Unfortunately, the emitted value will be undefined, as we have not returned anything within our map function.
+
+If we truly do want to not return a value, then a better option is to make this decision explicitly, as follows:
+
+const swallowedValues: Observable<number | null> =
+    emitOneTwo.pipe(
+        map((value: number) => {
+            if (value < 2) {
+                return null;
+            }
+            return value;
+        })
+    );
+swallowedValues.subscribe((value: number | null) => {
+    console.log(`subscriber received value: ${value}`)
+});
+Here, we have modified our map function to always return a value. If the incoming value is less than 2, we return null, otherwise we simply return the value passed in. Note that we have also explicitly typed the value of the swallowedValues Observable to be of type Observable<number | null>. This is an example of where we might want to explicitly type an Observable, to ensure that all subscribers know what types it is emitting.
+
+We have also modified our subscribe function, to allow the value parameter to be either of type number, or of type null. The output of this version of code is as follows:
+
+subscriber received value: null
+subscriber received value: 2
+Here, we can see that the subscribe function was called with the value of null, and then with the value of 2. Making sure that we always return a value from a map function ensures that we are making conscious decisions about how the subscriber should react.
+
+Note that the TypeScript compiler will give us some indication of possible errors when we fail to return values within an Observable.
+
+Failing to return a value will automatically make the entire Observable return a type of unknown. It is therefore good practice to strongly type the parameters of subscribe functions, so that we know what value we are expecting an Observable to emit.
+
+Time-based Observables
+One of the main features of using RxJS Observables is that they are able to work seamlessly with asynchronous events. In other words, if you subscribe to an Observable, and the Observable only emits a value after 10 seconds, you will still be notified of this event when it happens.
+
+This ability to handle asynchronous events with Observables is very handy and is used extensively in some libraries for making requests to an API. We do not know how long the server may take to respond, so we can therefore create an Observable out of a REST request and then simply subscribe to it. We will see examples of this technique when using the HttpClient class within Angular in a later chapter.
+
+To illustrate time-based events, we can use another function made available by the RxJS library name interval, as follows:
+
+const sourceInterval = interval(1000);
+const fiveNumbers = sourceInterval.pipe(
+    take(5),
+    map((value: number) => {
+        console.log(`map received : ${value}`)
+        return `string_${value * 2}`;
+    })
+);
+fiveNumbers.subscribe((value: string) => {
+    console.log(`${new Date().toLocaleTimeString()} ${value}`);
+});
+Here, we have defined an Observable named sourceInterval, which is using the interval function with the argument 1000. The interval function will emit an ever-increasing integer value, starting at 0, every 1000 milliseconds, in other words, every second. We are then piping this Observable into two functions. The first function is named take, which is another function provided by the RxJS library. The take function has a single parameter, which is the number of Observable values to "take". We have set this value to 5, and therefore, the map function will be provided with five values, one per second. Once we have received all five values, the Observable stream will stop.
+
+Our map function is logging the received value to the console, and then multiplying its value by two, and converting it to a string with the prefix of string_.
+
+Finally, we are subscribing to the new Observable stream named fiveNumbers, and logging each string value received to the console. For the purposes of this exercise, we are also logging the current time to the console. The output of this code is as follows:
+
+map received : 0
+5:06:20 PM string_0
+map received : 1
+5:06:21 PM string_2
+map received : 2
+5:06:22 PM string_4
+map received : 3
+5:06:23 PM string_6
+map received : 4
+5:06:24 PM string_8
+Here, we can see the results of our time-based Observable stream. The value 0 is received by our map function, converted to a string, and then received by our subscribe function, at 5:06:20. One second later, at 5:06:21 the map function receives the value 1, which is passed onto our subscribe function. Once we have received five values, that is, 0 to 4, the Observable stream stops.
+
+Observable errors
+So what happens when something goes wrong within an Observable stream? Obviously, we will need a mechanism to catch these errors, so that we can do something sensible with them. As an example of a faulty Observable stream, consider the following code:
+
+interface IValue {
+    value: number
+}
+interface INestedObj {
+    id?: IValue;
+}
+const objEmit : Observable<INestedObj> = of(
+    { id: { value: 1 } },
+    {},
+    { id: { value: 2 } }
+);
+Here, we start with two interfaces, named IValue and INestedObj. The IValue interface has a property named value of type number, and the INestedObj has a single optional parameter named id of type IValue. We then create an Observable named objEmit that emits three values. The first value has the nested structure described by the INestedObj interface, and the second is a blank object. Now consider the following Observable stream:
+
+const returnIdValue = objEmit.pipe(
+    map((value: INestedObj) => {
+        return value.id!.value;
+    })
+);
+returnIdValue.subscribe((value: number) => {
+    console.log(`received ${value} `)
+});
+Here, we have an Observable stream named returnIdValue that is returning the id.value property for the incoming stream value named value. Note how we have had to use the definite assignment operator in this return statement, that is, value!.id!.value, as the TypeScript compiler will normally generate errors if we attempt to access values that could be null or undefined. We then subscribe to this stream, and log the value received to the console. Our map function code will work perfectly with the first value in the Observable stream but will cause the program to crash on the second value of the stream. The output of this code is as follows:
+
+received 1 
+TypeError: Cannot read property 'value' of undefined
+Here, we can see that the first value of the stream was processed correctly, but the second value caused the code to crash. This is because the second value emitted in our Observable stream does not have an id property, it is undefined, and we cannot access the value property of an undefined value.
+
+While this may seem a fairly contrived example, it can happen quite often when receiving data in a nested JSON structure. It is always good practice to use optional chaining when dealing with nested properties coming from an outside source, where you can't be sure whether the value has been set correctly.
+
+In order to catch this error correctly, we can provide an error handling function when we subscribe to our Observable stream, as follows:
+
+returnIdValue.subscribe(
+    // called for each observable value
+    (value: number | null) => {
+        console.log(`received ${value} `);
+    },
+    // called if an error occurs
+    (error: unknown) => {
+        console.log(`error : ${error}`);
+    },
+    // complete function
+    () => {
+        console.log(`complete`);
+    }
+);
+Here, we have provided three functions as arguments to the subscribe function. The first function will be called for every value that is emitted by the Observable stream. The second function is an error function that will be called if an error occurs. The final function will be called when the subscribe function completes. The output of this code is as follows:
+
+received 1 
+error : TypeError: Cannot read property 'value' of undefined
+Here, we can see the sequence of events that are occurring with our Observable stream. The first value emitted is handled by the first function provided to subscribe and is receiving the value 1. The second value emitted by the Observable stream is causing the Observable stream to throw an error, and this error is being trapped by the error function provided to the subscribe function. Note, too, that the complete function is not called if an error occurs with the Observable stream.
+
+catchError
+The code we have explored thus far will trap any errors occurring in the Observable stream, but this error trap is actually outside of the stream itself. It is an error handler for the subscribe function. We can, however, use the catchError operator within an Observable stream itself, in order to trap errors earlier, but still maintain the integrity of the stream. Consider the following code:
+
+const returnIdValue = objEmit.pipe(
+    map((value: INestedObj) => {
+        return value!.id!.value;
+    }),
+    catchError((error: unknown) => {
+        console.log(`stream caught : ${error}`);
+        return of(null);
+    })
+);
+Here, we have updated our earlier Observable stream and added a catchError operator following our map operator. This catchError operator is a function that has a single parameter named error of type unknown. Within this function, we are logging a message to the console, and then returning an Observable value of null.
+
+This code now produces the following output:
+
+received 1 
+stream caught : TypeError: Cannot read property 'value' of undefined
+received null 
+complete
+There are a few interesting things to note about this output. Firstly, our catchError function is being called with the error "Cannot read property 'value' of undefined", which is the error that is generated by the map function, for the second value in the Observable stream. Secondly, our catchError is emitting the value null to the stream, which is then being picked up in our subscribe function. The third interesting thing is that the complete function of our subscribe code is now being executed.
+
+What this means is that by trapping the error within the Observable stream itself and emitting a value from the stream, the stream is allowed to complete, which will call the complete function on the subscriber. As we saw in our earlier code sample, which did not have a catchError function, allowing the Observable stream to throw an error, will cause only the error function to be executed, and not the complete function. Trapping an error with catchError, and putting a value on the stream when this happens, will trigger the complete function.
+
+Note that if an error occurs within an Observable stream, the stream will stop emitting values. This happens whether or not we emit a value from the catchError function or not. In our output, we can see that once the catchError occurs, and we emit a null value, the stream does not emit the value { id: { value: 2 } }.
+
+Observables returning Observables
+Quite often, when working with Observables, we need to return a new Observable stream while already dealing with an Observable stream. In other words, for each Observable value in a stream, create a new Observable stream. While this might sound complicated, in the real world, it can happen fairly regularly.
+
+Suppose that we are working with a REST API that tells us what products are sold within a sales catalog. This particular API call returns an array of product IDs that are associated with a particular catalog. For each of these product IDs, we then need to initiate a new REST API call to retrieve the information for this particular product, such as its name and description.
+
+Let's assume that we are using an HTTP client that returns an Observable for each API call. This means that the first Observable stream will be the list of products within a catalogue, say, [1,2,3]. For each value in this stream, we then need to initiate a new API call to fetch the name and description for the product, which will also return an Observable. So while dealing with each value of the original Observable stream, we then need to deal with another Observable stream that contains the product details.
+
+To illustrate this concept, consider the following interfaces:
+
+interface IProductId {
+    id: number;
+}
+interface IProductDescription {
+    name: string;
+    description: string;
+}
+Here, we have an interface named IProductId that has a single property named id of type number. We then have an interface name IProductDescription that has two properties named name and description of type string. These interfaces represent the information returned by two different Observables, as follows:
+
+const productList = <Observable<IProductId>>from(
+    [{ id: 1 }, { id: 2 }, { id: 3 }]
+);
+function getProductName(id: number):
+    Observable<IProductDescription> {
+    return of(
+        {
+            id: id,
+            name: `Product_${id}`,
+            description: `Description_${id}`
+        }
+    );
+}
+Here, we have an Observable named productList that is returning values of type IProductId. This Observable will emit the values {id: 1}, then {id: 2}, and then {id: 3}. We then have a function named getProductName that accepts a single parameter named id of type number, which is the id of the product to return details for. This function also returns an Observable, but this time of type IProductDescription. We can now use these two Observable streams as follows:
+
+productList.pipe(
+    map((value: IProductId) => {
+        console.log(`Product id: ${value.id}`);
+        return getProductName(value.id);
+    })
+).subscribe((value: Observable<IProductDescription>) => {
+    value.subscribe((value: IProductDescription) => {
+        console.log(`product name : ${value.name}`);
+        console.log(`product desc : ${value.description}`);
+    });
+});
+Here, we are piping the productList Observable stream into a map function. Within the map function, we are calling the getProductName function for each value in the stream. We are then subscribing to this new stream, which will emit an Observable of type IProductDescription. Within our subscribe function, we then need to call the subscribe function on the new Observable stream, which is generated by the getProductName function. This second subscribe function is logging the value of the name and description properties of the returned value argument, which is of type IProductDescription. The output of this code is as follows:
+
+Product id: 1
+product name : Product_1
+product desc : Description_1
+Product id: 2
+product name : Product_2
+product desc : Description_2
+Product id: 3
+product name : Product_3
+product desc : Description_3
+Here, we can see that each value of the initial Observable stream, which returns a value of type IProductId, is being processed by the second subscribe function, and logging the expected values to the console.
+
+The use of inner Observables can be optimized, however, by using another operator function named mergeMap.
+
+mergeMap
+The mergeMap operator is used to return a single value from an Observable stream, so that we do not need to subscribe to the inner Observable. This behavior is best described through an example, as follows:
+
+productList.pipe(
+    mergeMap((value: IProductId):
+        Observable<IProductDescription> => {
+        console.log(`Product id: ${value?.id}`);
+        return getProductName(value.id);
+    })
+).subscribe((value: IProductDescription) => {
+    console.log(`product name : ${value.name}`)
+    console.log(`product desc : ${value.description}`)
+});
+Here, we are piping the productList Observable stream into a mergeMap function. Note that the code for this mergeMap function is identical to our earlier map function, where it logs a message to the console, and then calls the getProductName function with the id property of the value passed in as an argument. The difference between this code sample and the previous code sample is in the subscribe function. Note that the type of the value parameter has changed from type Observable<IProductDescription> to just IProductDescription.
+
+The mergeMap operator, therefore, has removed the need for us to subscribe to the Observable that was emitted from the getProductName function. The mergeMap function is used to flatten an inner Observable.
+
+concatMap
+When an Observable emits values, the values emitted may arrive at a subscriber out of order. Let's assume that an Observable takes three seconds to emit a single value, and then two seconds to emit another value, and finally one second to emit the third value. This can be simulated as follows:
+
+const emitTreeTwoOne = of(3, 2, 1);
+const delayedEmit = emitTreeTwoOne.pipe(
+    mergeMap((value: number) => {
+        console.log(
+            `>> emit >> 
+            ${new Date().toLocaleTimeString()} 
+            value : ${value}, 
+            delaying : ${1000 * value} ms`
+        );
+        return of(value).pipe(delay(1000 * value))
+    })
+);
+Here, we have an Observable named emitThreeTwoOne, which will emit the values 3, then 2, then 1. We then pipe this Observable into a mergeMap function that logs the emitted value to the console, along with a timestamp. This function then emits the value received after a delay, using the delay function from the RxJS library. We can then subscribe to the delayedEmit Observable as follows:
+
+delayedEmit.subscribe(value => {
+    console.log(`<< receive << 
+        ${new Date().toLocaleTimeString()} 
+        received value : ${value}`);
+});
+The output of the subscription to this delayedEmit observable is as follows:
+
+>> emit >> 
+        11:05:26 PM 
+        value : 3, 
+        delaying : 3000 ms
+>> emit >> 
+        11:05:26 PM 
+        value : 2, 
+        delaying : 2000 ms
+>> emit >> 
+        11:05:26 PM 
+        value : 1, 
+        delaying : 1000 ms
+<< receive << 
+        11:05:27 PM 
+        received value : 1
+<< receive << 
+        11:05:28 PM 
+        received value : 2
+<< receive << 
+        11:05:29 PM 
+        received value : 3
+Here, we can see that the emitThreeTwoOne Observable is emitting the values 3, 2, and 1, one after another. Note the timestamps that are logged from the mergeMap function. All three emit events occur one after the other, within the same second. Our delayedEmit Observable, however, is delaying the emission of these values by 3 seconds, then 2 seconds, then 1 second. Our subscription to the delayedEmit Observable shows, from the timestamps, that we will receive the value 1 first, as it was only delayed by one second, and then the value 2, and then the value 3. In other words, we are receiving values emitted by the Observable based on the time that they were emitted.
+
+Note too that we have three emit events, followed by three receive events. This means that each value received by the delayedEmit Observable is processed immediately.
+
+If it is important to process the emitted values in order, no matter when they arrived, we can use the concatMap function instead of the mergeMap function. The concatMap function will only subscribe to the next Observable when the previous one completes. To illustrate this behavior, let's update the delayedEmit Observable as follows:
+
+const delayedEmit = emitTreeTwoOne.pipe(
+    concatMap((value: number) => {
+        console.log(
+            `>> emit >> 
+             ${new Date().toLocaleTimeString()} 
+             value : ${value}, 
+             delaying : ${1000 * value} ms`
+        );
+        return of(value).pipe(delay(1000 * value))
+    })
+);
+Here, the only change to our code is to use the concatMap function within our pipe function, instead of the mergeMap function that we used earlier. Let's take a look at the output of our code now, as follows:
+
+>> emit >> 
+        11:10:03 PM 
+        value : 3, 
+        delaying : 3000 ms
+<< receive << 
+        11:10:06 PM 
+        received value : 3
+>> emit >> 
+        11:10:06 PM 
+        value : 2, 
+        delaying : 2000 ms
+<< receive << 
+        11:10:08 PM 
+        received value : 2
+>> emit >> 
+        11:10:08 PM 
+        value : 1, 
+        delaying : 1000 ms
+<< receive << 
+        11:10:09 PM 
+        received value : 1
+Here, we can see the effect of using concatMap instead of mergeMap. The concatMap function will only subscribe to the next Observable when the first completes. This is clearly visible from the output where the emit and receive log messages occur in pairs. The first Observable value from the emitThreeTwoOne stream is emitted, and is piped into our delayedEmit Observable. Within this delayedEmit pipe, we are using concatMap to delay the emission of the value by three seconds. Once the delay is up, the value is emitted and received by our subscription to this Observable. This sequence marks the completion of the first Observable, and then the concatMap function is ready to receive another value. It then emits the value 2 after a delay of two seconds, which is again received by the subscription, and finally emits the value 1 after one second.
+
+The concatMap function is used to process Observable sequences in order. So if you are needing to wait until an Observable completes before wanting to process the next value, use concatMap.
+
+forkJoin
+When we have a number of Observable streams that need to all complete before we do something, we can use the forkJoin function. This situation occurs quite often when dealing with REST requests at the start of a page load, where the page may need to load data from a number of different REST APIs before displaying the page.
+
+Let's assume that we are building a web page to show products available in a catalog. We may need one REST request that loads a store catalog based on the current date, and another REST request that loads sales specials for the day. Our page may want to display the sale items on the top of the page, or in a scrolling banner, as well as all store items in the main body of the page.
+
+We may also need a further REST request to load information related to the customer, such as their logged-in status, or their country of origin. Only when all of these requests have completed can we display the page in full and allow the customer to add items to their shopping basket.
+
+To illustrate this concept, let's examine a few Observable streams, as follows:
+
+const onePerSecond = interval(1000);
+const threeNumbers: Observable<number[]> = onePerSecond.pipe(
+    take(3),
+    map((value: number) => {
+        console.log(`>> threeNumbers emitting : ${value}`);
+        return value;
+    }),
+    toArray()
+);
+const twoStrings: Observable<string[]> = onePerSecond.pipe(
+    take(2),
+    map((value: number) => {
+        console.log(`>> twoStrings emitting : value_${value}`);
+        return `value_${value}`;
+    }),
+    toArray()
+);
+Here, we have an Observable stream named onePerSecond, which will emit an incrementing integer value starting at 0 every second. We then have an Observable named threeNumbers that pipes the onePerSecond stream into a series of RxJS functions. The first function within this pipe section is take, which has the effect of only processing, or taking the first n values of the initial stream, as we have seen before.
+
+The next function in our pipe section is a map function, which is used to log the value of the Observable stream to the console, and then re-emit it. The final function in this pipe section is the toArray function, which combine all emitted values into an array and emit this array as a single Observable value. So our threeNumbers Observable stream will process the values 0, 1, and 2, and emit the array [0,1,2].
+
+In the same manner, the twoStrings Observable will take only two values from the onePerSecond stream, use the map function to return a string, and emit an array. It will therefore process the values 0 and 1, and return the array ["value_0", "value_1"].
+
+What is interesting about this example is that the twoStrings Observable will emit its string array before the threeNumbers Observable completes. This gives us a timing issue if we are trying to wait for both Observables to complete before we continue processing. Let's see how the forkJoin function helps in this case as follows:
+
+forkJoin(
+    [threeNumbers,
+        twoStrings]
+).subscribe((values) => {
+    console.log(`<< threeNumbers returned : ${values[0]}`);
+    console.log(`<< twoStrings returned : ${values[1]}`);
+});
+Here, we are using the forkJoin function, which accepts an array of Observables that must all complete before it will execute the subscribe function. Our subscribe function in this example just logs the values that were emitted by each Observable to the console. The output of this code is as follows:
+
+>> threeNumbers emitting : 0
+>> twoStrings emitting : value_0
+>> threeNumbers emitting : 1
+>> twoStrings emitting : value_1
+>> threeNumbers emitting : 2
+<< threeNumbers returned : 0,1,2
+<< twoStrings returned : value_0,value_1
+Here, we can see both the threeNumbers Observable stream and the twoStrings Observable stream receiving values from the onePerSecond stream, and emitting three numbers and two strings. In both cases, the toArray function is combining the emitted values into an array. Interestingly, though, the forkJoin function will wait until both streams have emitted values before running the subscribe function, as can be seen in the last two logs to the console.
+
+Note how we have referenced the array within our subscribe function for this forkJoin, as values[0] for the output of the threeNumbers stream, and values[1] for the output of the twoStrings stream. We can also use array syntax to destructure these array values into named variables as follows:
+
+forkJoin(
+    [threeNumbers,
+        twoStrings]
+).subscribe((
+    [threeNumbersOutput, twoStringsOutput]
+) => {
+    console.log(`<< threeNumbersOutput: ${threeNumbersOutput}`);
+    console.log(`<< twoStringsOutput: ${twoStringsOutput}`);
+});
+Here, we have replaced the values parameter of the subscribe function with a destructured and named array, [threeNumbersOutput, twoStringsOutput]. This means that we do not need to reference the values using array syntax, or values[0]; we can just reference the named parameter, which would be threeNumbersOutput, or twoStringsOutput. Using this named destructuring technique is preferable to using the array technique, for two reasons. Firstly, our code becomes more readable, as a named variable, such as threeNumbersOutput, is easier to understand than value[0]. Secondly, we are safeguarding our code from referencing array values that do not exist. Within our subscribe function, we could erroneously reference values[3], which would return undefined as the forkJoin only returned two values.
+
+As we have seen, forkJoin will wait for all Observable streams to complete before executing the subscribe function.
+
+Observable Subject
+Thus far, we have worked with Observables that emit values and seen how to subscribe to Observable streams. The Observable itself is responsible for emitting values, and the subscribers react to values being emitted. When an Observable stream is complete, all subscribers complete their processing, and their execution stops. In essence, subscribers are alive as long as the Observable stream is emitting values.
+
+So what if we want to keep an Observable stream open and register one or more subscribers that will wait around until a new value is emitted? Think in terms of an event bus, where multiple subscribers register their interest in a topic on an event bus, and then react as and when an event is raised that they are interested in. RxJS provides the Subject class for this express purpose.
+
+defined a service with subject
+
+on method is subscribe
+
+
+
+`export class BroadcastService {
+    private _eventBus = new Subject<IBroadcastEvent>();
+    on(key: EventKeys): Observable<string> {
+        return this._eventBus.asObservable().pipe(
+            filter(
+                event => event.key === key ||
+                    event.key === EventKeys.ALL),
+            map(event => event.data));
+    }
+    broadcast(key: EventKeys, data: string) {
+        this._eventBus.next({ key, data }); //push next data
+    }
+}`
+
+Test driven development
+
+1. Unit test - whitebox test with mocking
+2. Integration test - whitebox test , real world
+3. acceptance test - blackbox test Acceptance tests are black-box tests and are generally scenario-based. 
+
+
+Testing framework:-
+1. jest
+
+we can use npx jest or add script : "test" :"jest" } 
+
+for type script use ts-jest
+
+`test('should be false', () => {
+    expect(false).toBeFalsy();
+});`
+
+"scripts": {
+        "test": "jest --watchAll --verbose"
+    },
+    
+    
+    Grouping tests
+Within a test specification file, we may want to group our tests into logical sets. Jest uses the function describe for this purpose, as seen in the following tests:
+
+describe("a group of tests", () => {
+    test("first test", () => {
+        expect("string value").toEqual("string value")
+    })
+    it("second test", () => {
+        expect("abc").not.toEqual("def");
+    })
+});
+
+These two function names are synonymous, as the it function is the default Jasmine function for describing tests, and the test function is Jest's default.
+
+
+describe("a group of tests", () => {
+    test.only("first test", () => {
+        expect("string value").toEqual("string value")
+    })
+    fit("second test", () => { // force it
+        expect("abc").not.toEqual("def");
+    })
+});
+
+
+The opposite of forcing tests is to skip tests. To skip a test, we can prefix the test with the letter x, so it becomes xit, as follows:
+
+`fdescribe("a group of tests", () => {
+    test("first test", () => {
+        expect("string value").toEqual("string value")
+    })
+    xit("second test", () => {
+        expect("abc").not.toEqual("def");
+    })
+});`
+
+Jest uses what are known as matchers to match the expected values in a test to the received values. Let's have a quick look at some of these matchers, as follows:
+
+`it("should match with toBe", () => {
+    expect(1).toBe(2);
+});`
+
+Jest also provides a number of variations of the toContain matcher, which can be used to test for inclusion of a value in another value, as follows:
+
+toThrowError 
+
+
+setup teardown
+
+`describe("test setup and teardown", () => {
+    let globalCounter: GlobalCounter;
+    beforeAll(() => {
+        globalCounter = new GlobalCounter();
+    })
+    beforeEach(() => {
+        globalCounter.count = 0;
+    });
+    afterEach(() => {
+        console.log(`globalCounter.count =
+            ${globalCounter.count}`);
+    });
+});`
+
+
+Data-driven tests
+Quite often, we need the same test to be run multiple times, just with different input values. As an example of this, consider the following test:
+
+`[1, 2, 3, 4, 5]
+    .forEach((value: number) => {
+        it(`${value} should be less than 5`, () => {
+            expect(value).toBeLessThan(5);
+        })
+    });`
+    
+    
+    Data driven test :-
+    
+    
+    `testUsing(
+    [
+        [undefined, false],
+        [null, false],
+        [" ", false],
+        ["  ", false],
+        [" a ", true]
+    ]
+    , ([value, isValid]: [string, boolean]) => {
+        it(`"${value}" hasValueNoWhiteSpace ? ${isValid}`,
+            () => {
+            isValid ?
+                expect(hasValueNoWhiteSpace(value)).toBeTruthy() :
+                expect(hasValueNoWhiteSpace(value)).toBeFalsy();
+            }
+        );
+    });`
+    
+    ## Jest mocks
+    
+    `it("should mock callback function", () => {
+    let mock = jest.fn();
+    let myCallbackClass = new MyCallbackClass();
+    myCallbackClass.executeCallback('test', mock);
+    expect(mock).toHaveBeenCalled();
+});`
+
+
+Jest spies
+Jest also provides us with the ability to check whether a particular class method has been called, using what is known as a spy. Consider the following class definition:
+
+`class MySpiedClass {
+    testFunction() {
+        console.log(`testFunction() called`);
+        this.testSpiedFunction();
+    }
+    testSpiedFunction() {
+        console.log(`testSpiedFunction called`)
+    }
+}
+`
+
+`it("should call testSpiedFunction", () => {
+    let mySpiedClass = new MySpiedClass();
+    const testFunctionSpy = jest.spyOn( // mock function
+        mySpiedClass, 'testSpiedFunction');
+    mySpiedClass.testFunction();
+    expect(testFunctionSpy).toHaveBeenCalled();
+});`
+
+
+Using done
+Jest provides a method named done to signify that the test run should wait for an asynchronous call to complete. The done function can be passed in as an argument in any beforeAll, beforeEach, or it function, and will allow our asynchronous test to wait for the done function to be called before continuing. Let's rewrite our previous failing test using done as follows:
+
+`describe("async test with done ", () => {
+    let returnedValue!: string;
+    beforeEach((done: jest.DoneCallback) => { // done callback
+        let mockAsync = new MockAsync();
+        console.log(`1. calling executeSlowFunction`);
+        mockAsync.executeSlowFunction((value: string) => {
+            console.log(`2. executeSlowFunction returned`);
+            returnedValue = value;
+            done(); // wait till done is called
+        })
+    });
+    it("should return value after 1 second", () => {
+        console.log(`3. checking returnedValue`);
+        expect(returnedValue).toEqual("completed");
+    })
+});`
+
+async await in function call
+
+`describe("async test", () => {
+    it("should wait 1 second for promise to resolve",
+        async () => {
+        let asyncWithPromise = new AsyncWithPromise();
+        console.log(`1. calling delayedPromise`);
+        let returnValue = await asyncWithPromise.delayedPromise();
+        console.log(`3. after await`);
+        expect(returnValue).toEqual("success");
+    })
+});`
+
+## HTML-based tests
+npm install jsdom --save-dev 
+npm install jquery
+And the @types declaration files for both libraries as follows:
+
+npm install @types/jsdom --save-dev 
+npm install @types/jquery --save-dev
+
+`it("should set text on div", () => {
+    document.body.innerHTML =
+        `<div id="test_div"></div>`;
+    let htmlElement = $('#test_div');
+    expect(htmlElement.length).toBeGreaterThan(0);
+    setTestDiv("Hello World");
+    expect(htmlElement.html()).toContain("Hello World");
+});`
+
+
+DOM events:-
+
+it("should trigger an onclick DOM event", () => {
+    let dom = new JSDOM(
+        htmlWithClickEvent,
+        { runScripts: "dangerously" });
+    let clickHandler = <HTMLElement>
+        dom.window.document.querySelector("#click_handler_div");
+    let clickEventSpy = jest.spyOn(clickHandler, "click");
+    clickHandler.click();
+    expect(clickEventSpy).toHaveBeenCalled();
+});
+
+
+Protractor
+Protractor is a Node-based test runner that is used to tackle end-to-end or automated acceptance testing. Essentially, it is a tool that allows us to programmatically control a web browser. Just like in manual testing, Protractor has the ability to browse to a specific page by entering its URL, and then interact with the elements on the page itself. As an example of how it can be used, suppose that we have a website that has a login page, and all further interaction with the site requires a valid login. We can use Protractor to browse to the login page at the start of each test, enter valid credentials, hit the Login button, and then interact with the site's pages.
+
+it("should navigate to google and find a title", async () => {
+    browser.driver.get('https://www.google.com');
+    expect(browser.driver.getTitle()).toContain("Google");
+    let title = await browser.driver.getTitle();
+    console.log(`await getTitle() returned : ${title}`);
+});
+
+it("should search for the term TypeScript", async () => {
+    browser.driver.get('https://www.google.com');
+    await browser.driver.findElement(
+        By.css(`input[type=text]`))
+        .sendKeys("TypeScript");
+    await browser.driver.findElement(
+        By.xpath(
+            `//*[@id="tsf"]/div[2]/div[1]/div[1]/div/div[2]/input`
+        )).sendKeys(Key.ENTER);
+    let title = await browser.driver.getTitle();
+    expect(title).toContain(`TypeScript`);
+    console.log(`await getTitle() returned : ${title}`);
+});
+
+
+### Node and Express
+we can use express for application
+use config library to store configs
+use handlebar for templating
+use session to store and maintain sessions 
+
+
 
